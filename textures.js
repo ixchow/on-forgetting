@@ -11,6 +11,9 @@ const TILES = {};
 TILES.tree = {
 	color:[0.5, 0.8, 0.3, 1.0]
 };
+TILES.cone = {
+	color:[0.8, 0.2, 0.1, 1.0]
+};
 TILES.solid = {
 	color:[0.7, 0.7, 0.7, 1.0]
 };

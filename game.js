@@ -54,6 +54,8 @@ GAME.setLevel = function GAME_setLevel(LEVEL) {
 			}
 			if (t === 'O') {
 				tile.bg = TILES.tree;
+			} else if (t === 'A') {
+				tile.bg = TILES.cone;
 			} else if (t === 'e') {
 				tile.bg = TILES.exit;
 			} else if (t === '#') {
@@ -61,6 +63,9 @@ GAME.setLevel = function GAME_setLevel(LEVEL) {
 			//futures:
 			} else if (t === '0') { //require a tree
 				tile.requires = TILES.tree;
+				tile.isFuture = true;
+			} else if (t === '4') { //require a cone
+				tile.requires = TILES.cone;
 				tile.isFuture = true;
 			} else if (t === ',') {
 				tile.isFuture = true;
@@ -363,8 +368,127 @@ GAME.movePlayer = function GAME_movePlayer(controls) {
 };
 
 GAME.startFuture = function GAME_startFuture(x,y) {
+	this.tiles.forEach(function(tile){
+		delete tile.marked;
+		delete tile.matchOffset;
+	});
+
+	//flood-fill the future & mark:
+	let future = [{x:x, y:y}];
+	this.tiles[y*this.width+x].marked = true;
+	for (let i = 0; i < future.length; ++i) {
+		let at = future[i];
+		console.assert(this.tiles[at.y*this.width+at.x].marked, "all future marked");
+		[{x:-1,y:0},{x:1,y:0},{x:0,y:-1},{x:0,y:1}].forEach(function(s){
+			let n = { x:at.x+s.x, y:at.y+s.y };
+			if (n.x < 0 || n.y < 0 || n.x >= this.width || n.y >= this.height) return;
+			if (!this.tiles[n.y*this.width+n.x].isFuture) return;
+			if (this.tiles[n.y*this.width+n.x].marked) return;
+			this.tiles[n.y*this.width+n.x].marked = true;
+			future.push(n);
+		}, this);
+	}
+
+	let required = [];
+	future.forEach(function(at){
+		let tile = this.tiles[at.y*this.width+at.x];
+		if (tile.requires) {
+			required.push({x:at.x, y:at.y, requires:tile.requires});
+		}
+	}, this);
+	console.log("Future has " + future.length + " tiles, and " + required.length + " requirements.");
+	console.assert(required.length > 0, "must have something required");
+
+	//look for requirements:
+	this.tiles.forEach(function(tile, tileIndex){
+		if (tile.bg !== required[0].requires) return;
+		if (!tile.isRemembered) return;
+
+		let at = {
+			x:(tileIndex % this.width),
+			y:Math.floor(tileIndex / this.width)
+		};
+		for (let i = 1; i < required.length; ++i) {
+			let n = {
+				x: at.x + required[i].x - required[0].x,
+				y: at.y + required[i].y - required[0].y
+			};
+			if (n.x < 0 || n.x >= this.width || n.y < 0 || n.y >= this.height) {
+				return; //bail out -- nothing here to match
+			}
+			let ntile = this.tiles[n.y * this.width + n.x];
+			if (!ntile.isRemembered) {
+				return; //bail out -- nothing remembered here to match
+			}
+			if (ntile.bg !== required[i].requires) {
+				return; //bail out -- tile doesn't match
+			}
+		}
+		//Hmm, looks like a real match!
+		let ofs = {
+			x:at.x - required[0].x,
+			y:at.y - required[0].y
+		};
+		console.log("Match at " + at.x + ", " + at.y + " with offset " + ofs.x + " " + ofs.y + ".");
+		tile.matchOffset = ofs;
+	}, this);
+
+
 	this.futureMode = true;
 };
+
+GAME.finishFuture = function GAME_finishFuture(x,y) {
+	let ofs = this.tiles[y*this.width+x].matchOffset;
+	console.log("Match with offset " + ofs.x + " " + ofs.y);
+
+	//all marked tiles copy from the proper offset and mark isForgotten:
+	this.tiles.forEach(function(tile, tileIndex){
+		if (!tile.marked) return;
+		let at = {
+			x:(tileIndex % this.width),
+			y:Math.floor(tileIndex / this.width)
+		};
+		let src = {
+			x:at.x + ofs.x,
+			y:at.y + ofs.y
+		};
+		let fg = null;
+		let bg = null;
+		if (src.x >= 0 && src.x < this.width && src.y >= 0 && src.y < this.height) {
+			let stile = this.tiles[src.y*this.width+src.x];
+			if (stile.isRemembered) {
+				fg = stile.fg;
+				bg = stile.bg;
+				stile.isForgotten = true;
+			}
+		}
+		tile.from = {fg:fg, bg:bg};
+	}, this);
+
+	this.tiles.forEach(function(tile){
+		if (!tile.marked) return;
+		delete tile.isFuture;
+		delete tile.isForgotten;
+
+		tile.fg = tile.from.fg;
+		tile.bg = tile.from.bg;
+		tile.isRemembered = true;
+
+		console.log(tile);
+	}, this);
+
+	//teleport player:
+	this.player.x -= ofs.x;
+	this.player.y -= ofs.y;
+
+	//clean up:
+	this.tiles.forEach(function(tile){
+		delete tile.marked;
+		delete tile.matchOffset;
+	});
+
+	this.futureMode = false;
+}
 
 GAME.tick = function GAME_tick(controls) {
 	if (controls.reset.downs) {
@@ -372,10 +496,16 @@ GAME.tick = function GAME_tick(controls) {
 	}
 	this.movePlayer(controls);
 
-	if (this.futureMode) {
-		//Touch a match => present mode (and re-arrange map?)
-	} else {
-		//Touch a future => future mode!
+	//in present mode, forget as needed:
+	if (!this.futureMode) {
+		this.tiles.forEach(function(tile){
+			if (tile.isForgotten) {
+				tile.isRemembered = false;
+			}
+		});
+	}
+
+	{ //deal with touching things:
 		//all overlapped tiles:
 		let minX = Math.floor(this.player.x - 0.5 * PLAYER_WIDTH);
 		let maxX = Math.floor(this.player.x + 0.5 * PLAYER_WIDTH);
@@ -387,23 +517,36 @@ GAME.tick = function GAME_tick(controls) {
 		minY = Math.max(0, minY);
 		maxY = Math.min(this.height-1, maxY);
 
-		for (let y = minY; y <= maxY; ++y) {
-			for (let x = minX; x <= maxX; ++x) {
-				if (this.tiles[y*this.width+x].isFuture) {
-					this.startFuture(x,y);
+		if (this.futureMode) {
+			//Future mode:
+			//Touch a match => present mode (and re-arrange map?)
+			for (let y = minY; y <= maxY; ++y) {
+				for (let x = minX; x <= maxX; ++x) {
+					if (this.tiles[y*this.width+x].matchOffset) {
+						this.finishFuture(x,y);
+						break;
+					}
 				}
+				if (!this.futureMode) break;
+			}
+		} else {
+			//Present mode:
+			//Touch a future => future mode!
+
+			for (let y = minY; y <= maxY; ++y) {
+				for (let x = minX; x <= maxX; ++x) {
+					if (this.tiles[y*this.width+x].isFuture) {
+						this.startFuture(x,y);
+						break;
+					}
+				}
+				if (this.futureMode) break;
 			}
 		}
 	}
 
-	//in present mode, remember and forget:
+	//in present mode, remember as needed:
 	if (!this.futureMode) {
-		//forget as needed:
-		this.tiles.forEach(function(tile){
-			if (tile.isForgotten) {
-				tile.isRemembered = false;
-			}
-		});
 		//mark isRemembered:
 		let minX = Math.floor(this.player.x) - 2;
 		let maxX = Math.floor(this.player.x) + 2;
