@@ -17,6 +17,9 @@ TILES.solid = {
 TILES.exit = {
 	color:[0.2, 0.2, 0.2, 1.0]
 };
+TILES.cloud = {
+	color:[1.0, 1.0, 1.0, 0.7]
+};
 
 const ANIMATIONS = {};
 ANIMATIONS.playerStand = [
