@@ -21,6 +21,28 @@ SHADERS.load = function SHADERS_load() {
 			gl_FragColor = vColor;
 		}
 	`);
+
+	SHADERS.textured = initShaderProgram(gl,`
+		attribute vec2 aPosition;
+		attribute vec2 aTexCoord;
+		attribute vec4 aColor;
+		uniform mat4 uMVP;
+		varying vec2 vTexCoord;
+		varying vec4 vColor;
+		void main() {
+			gl_Position = uMVP * vec4(aPosition, 0.0, 1.0);
+			vTexCoord = aTexCoord;
+			vColor = aColor;
+		}
+	`,`
+		uniform sampler2D tex;
+		varying mediump vec2 vTexCoord;
+		varying lowp vec4 vColor;
+		void main() {
+			gl_FragColor = texture2D(tex, vTexCoord) * vColor;
+		}
+	`);
+
 };
 
 

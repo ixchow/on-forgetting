@@ -587,25 +587,32 @@ GAME.draw = function GAME_draw() {
 
 	function push_tile(x,y,t) {
 		const c = t.color;
+		const uv = t.uv || TILES.blank.uv;
+		push_tile_uv_c(x,y,uv,c);
+	}
+
+	function push_tile_uv_c(x,y,uv,c) {
 
 		attribs.push(
-			x+0,y+0, c[0],c[1],c[2],c[3],
-			x+1,y+0, c[0],c[1],c[2],c[3],
-			x+1,y+1, c[0],c[1],c[2],c[3],
-			x+0,y+0, c[0],c[1],c[2],c[3],
-			x+1,y+1, c[0],c[1],c[2],c[3],
-			x+0,y+1, c[0],c[1],c[2],c[3]
+			x+0,y+0, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			x+1,y+0, uv[2],uv[1], c[0],c[1],c[2],c[3],
+			x+1,y+1, uv[2],uv[3], c[0],c[1],c[2],c[3],
+			x+0,y+0, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			x+1,y+1, uv[2],uv[3], c[0],c[1],c[2],c[3],
+			x+0,y+1, uv[0],uv[3], c[0],c[1],c[2],c[3]
 		);
 	}
 
+
 	function push_rect(x,y,w,h,c) {
+		const uv = TILES.blank.uv;
 		attribs.push(
-			x+0,y+0, c[0],c[1],c[2],c[3],
-			x+w,y+0, c[0],c[1],c[2],c[3],
-			x+w,y+h, c[0],c[1],c[2],c[3],
-			x+0,y+0, c[0],c[1],c[2],c[3],
-			x+w,y+h, c[0],c[1],c[2],c[3],
-			x+0,y+h, c[0],c[1],c[2],c[3]
+			x+0,y+0, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			x+w,y+0, uv[2],uv[1], c[0],c[1],c[2],c[3],
+			x+w,y+h, uv[2],uv[3], c[0],c[1],c[2],c[3],
+			x+0,y+0, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			x+w,y+h, uv[2],uv[3], c[0],c[1],c[2],c[3],
+			x+0,y+h, uv[0],uv[3], c[0],c[1],c[2],c[3]
 		);
 	}
 
@@ -616,14 +623,15 @@ GAME.draw = function GAME_draw() {
 		let py = bx-ax;
 		px *= r / Math.sqrt((bx-ax)*(bx-ax)+(by-ay)*(by-ay));
 		py *= r / Math.sqrt((bx-ax)*(bx-ax)+(by-ay)*(by-ay));
+		const uv = TILES.blank.uv;
 
 		attribs.push(
-			ax-px,ay-py, c[0],c[1],c[2],c[3],
-			bx-px,by-py, c[0],c[1],c[2],c[3],
-			bx+px,by+py, c[0],c[1],c[2],c[3],
-			ax-px,ay-py, c[0],c[1],c[2],c[3],
-			bx+px,by+py, c[0],c[1],c[2],c[3],
-			ax+px,ay+py, c[0],c[1],c[2],c[3]
+			ax-px,ay-py, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			bx-px,by-py, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			bx+px,by+py, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			ax-px,ay-py, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			bx+px,by+py, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			ax+px,ay+py, uv[0],uv[1], c[0],c[1],c[2],c[3]
 		);
 	}
 
@@ -651,14 +659,57 @@ GAME.draw = function GAME_draw() {
 	//DEBUG:
 	push_rect(this.player.x-0.5*PLAYER_WIDTH, this.player.y, PLAYER_WIDTH, PLAYER_HEIGHT, [0.0, (this.player.grounded ? 1.0 : 0.0), 1.0, 1.0]);
 
-	//memory layer:
-	for (let y = 0; y < this.height; ++y) {
-		for (let x = 0; x < this.width; ++x) {
-			const tile = this.tiles[y*this.width+x];
-			if (!tile.isRemembered) {
-				push_tile(x,y,TILES.cloud);
+	{ //memory layer:
+		let remembered = new Array((this.width+2)*(this.height+2));
+		for (let y = 0; y < this.height; ++y) {
+			for (let x = 0; x < this.width; ++x) {
+				const tile = this.tiles[y*this.width+x];
+				if (tile.isRemembered) {
+					remembered[(this.width+2)*(y+1)+(x+1)] = true;
+				}
 			}
 		}
+		for (let y = 0; y < this.height+1; ++y) {
+			for (let x = 0; x < this.width+1; ++x) {
+				let idx =
+					  (remembered[(y+0)*(this.width+2)+(x+0)] ? 1 : 0)
+					+ (remembered[(y+0)*(this.width+2)+(x+1)] ? 2 : 0)
+					+ (remembered[(y+1)*(this.width+2)+(x+0)] ? 4 : 0)
+					+ (remembered[(y+1)*(this.width+2)+(x+1)] ? 8 : 0)
+				;
+				push_tile(x-0.5,y-0.5,CORNER_TILESETS.remembered[idx]);
+			}
+		}
+	}
+	{ //future layer:
+		let future = new Array((this.width+2)*(this.height+2));
+		for (let y = 0; y < this.height; ++y) {
+			for (let x = 0; x < this.width; ++x) {
+				const tile = this.tiles[y*this.width+x];
+				if (tile.isFuture) {
+					future[(this.width+2)*(y+1)+(x+1)] = true;
+				}
+			}
+		}
+		for (let y = 0; y < this.height+1; ++y) {
+			for (let x = 0; x < this.width+1; ++x) {
+				let idx =
+					  (future[(y+0)*(this.width+2)+(x+0)] ? 1 : 0)
+					+ (future[(y+0)*(this.width+2)+(x+1)] ? 2 : 0)
+					+ (future[(y+1)*(this.width+2)+(x+0)] ? 4 : 0)
+					+ (future[(y+1)*(this.width+2)+(x+1)] ? 8 : 0)
+				;
+				push_tile(x-0.5,y-0.5,CORNER_TILESETS.future[idx]);
+			}
+		}
+		//future requirements:
+		this.tiles.forEach(function(tile, tileIndex){
+			if (tile.isFuture && tile.requires) {
+				let x = (tileIndex % this.width);
+				let y = Math.floor(tileIndex / this.width);
+				push_tile_uv_c(x,y, tile.requires.uvR, [1.0, 1.0, 1.0, 1.0]);
+			}
+		}, this);
 	}
 
 	/*//MORE DEBUG:
@@ -698,24 +749,33 @@ GAME.draw = function GAME_draw() {
 	gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(attribs), gl.STREAM_DRAW);
 
 	gl.vertexAttribPointer(
-		SHADERS.solid.aPosition.location,
+		SHADERS.textured.aPosition.location,
 		2, gl.FLOAT, //size, type
 		false, //normalize
-		2*4+4*4, //stride
+		2*4+2*4+4*4, //stride
 		0 //offset
 	);
-	gl.enableVertexAttribArray(SHADERS.solid.aPosition.location);
+	gl.enableVertexAttribArray(SHADERS.textured.aPosition.location);
 
 	gl.vertexAttribPointer(
-		SHADERS.solid.aColor.location,
-		4, gl.FLOAT, //size, type
+		SHADERS.textured.aTexCoord.location,
+		2, gl.FLOAT, //size, type
 		false, //normalize
-		2*4+4*4, //stride
+		2*4+2*4+4*4, //stride
 		2*4 //offset
 	);
-	gl.enableVertexAttribArray(SHADERS.solid.aColor.location);
+	gl.enableVertexAttribArray(SHADERS.textured.aTexCoord.location);
 
-	gl.useProgram(SHADERS.solid);
+	gl.vertexAttribPointer(
+		SHADERS.textured.aColor.location,
+		4, gl.FLOAT, //size, type
+		false, //normalize
+		2*4+2*4+4*4, //stride
+		2*4+2*4 //offset
+	);
+	gl.enableVertexAttribArray(SHADERS.textured.aColor.location);
+
+	gl.useProgram(SHADERS.textured);
 
 	const aspect = CANVAS.width / CANVAS.height;
 	const scale = Math.min(aspect,1.0) / this.camera.radius;
@@ -724,7 +784,7 @@ GAME.draw = function GAME_draw() {
 	const y = this.camera.y;
 
 	gl.uniformMatrix4fv(
-		SHADERS.solid.uMVP.location,
+		SHADERS.textured.uMVP.location,
 		false,
 		new Float32Array([
 			scale/aspect,0,0,0,
@@ -734,10 +794,15 @@ GAME.draw = function GAME_draw() {
 		])
 	);
 
-	gl.drawArrays(gl.TRIANGLES, 0, attribs.length / (2+4));
+	gl.enable(gl.BLEND);
+	gl.blendEquation(gl.FUNC_ADD);
+	gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-	gl.disableVertexAttribArray(SHADERS.solid.aPosition.location);
-	gl.disableVertexAttribArray(SHADERS.solid.aColor.location);
+	gl.drawArrays(gl.TRIANGLES, 0, attribs.length / (2+2+4));
+
+	gl.disableVertexAttribArray(SHADERS.textured.aPosition.location);
+	gl.disableVertexAttribArray(SHADERS.textured.aTexCoord.location);
+	gl.disableVertexAttribArray(SHADERS.textured.aColor.location);
 
 };
 
