@@ -659,7 +659,7 @@ GAME.draw = function GAME_draw() {
 	//DEBUG:
 	push_rect(this.player.x-0.5*PLAYER_WIDTH, this.player.y, PLAYER_WIDTH, PLAYER_HEIGHT, [0.0, (this.player.grounded ? 1.0 : 0.0), 1.0, 1.0]);
 
-	{ //memory layer:
+	if (!this.futureMode) { //memory layer:
 		let remembered = new Array((this.width+2)*(this.height+2));
 		for (let y = 0; y < this.height; ++y) {
 			for (let x = 0; x < this.width; ++x) {
@@ -681,7 +681,7 @@ GAME.draw = function GAME_draw() {
 			}
 		}
 	}
-	{ //future layer:
+	if (!this.futureMode) { //future layer:
 		let future = new Array((this.width+2)*(this.height+2));
 		for (let y = 0; y < this.height; ++y) {
 			for (let x = 0; x < this.width; ++x) {
@@ -699,7 +699,39 @@ GAME.draw = function GAME_draw() {
 					+ (future[(y+1)*(this.width+2)+(x+0)] ? 4 : 0)
 					+ (future[(y+1)*(this.width+2)+(x+1)] ? 8 : 0)
 				;
-				push_tile(x-0.5,y-0.5,CORNER_TILESETS.future[idx]);
+				push_tile(x-0.5,y-0.5,CORNER_TILESETS.futureCenter[idx]);
+				push_tile(x-0.5,y-0.5,CORNER_TILESETS.futureEdge[idx]);
+			}
+		}
+		//future requirements:
+		this.tiles.forEach(function(tile, tileIndex){
+			if (tile.isFuture && tile.requires) {
+				let x = (tileIndex % this.width);
+				let y = Math.floor(tileIndex / this.width);
+				push_tile_uv_c(x,y, tile.requires.uvR, [1.0, 1.0, 1.0, 1.0]);
+			}
+		}, this);
+	}
+
+	if (this.futureMode) {
+		let available = new Array((this.width+2)*(this.height+2));
+		for (let y = 0; y < this.height; ++y) {
+			for (let x = 0; x < this.width; ++x) {
+				const tile = this.tiles[y*this.width+x];
+				if (tile.isRemembered && !tile.isFuture) {
+					available[(this.width+2)*(y+1)+(x+1)] = true;
+				}
+			}
+		}
+		for (let y = 0; y < this.height+1; ++y) {
+			for (let x = 0; x < this.width+1; ++x) {
+				let idx =
+					  (available[(y+0)*(this.width+2)+(x+0)] ? 1 : 0)
+					+ (available[(y+0)*(this.width+2)+(x+1)] ? 2 : 0)
+					+ (available[(y+1)*(this.width+2)+(x+0)] ? 4 : 0)
+					+ (available[(y+1)*(this.width+2)+(x+1)] ? 8 : 0)
+				;
+				push_tile(x-0.5,y-0.5,CORNER_TILESETS.futureMode[idx]);
 			}
 		}
 		//future requirements:

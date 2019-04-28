@@ -12,7 +12,7 @@ all : \
 	tiles.png \
 
 
-%.png : %.svg
-	$(INKSCAPE) --without-gui --file='$<' --export-area-page --export-background=white --export-background-opacity=0 --export-png='$@'
+tiles.png : tiles.svg
+	$(INKSCAPE) --without-gui --file='$<' --export-area-page --export-background=white --export-background-opacity=0 --export-png='$@' --export-width=1024
 
 

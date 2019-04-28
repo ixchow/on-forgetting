@@ -64,13 +64,13 @@ TILES.blank = {
 
 TILES.tree = {
 	color:[0.5, 0.8, 0.3, 1.0],
-	uv:make_tc(2,0),
-	uvR:make_tc(1,0),
+	uv:make_tc(2,1),
+	uvR:make_tc(1,1),
 };
 TILES.cone = {
 	color:[0.8, 0.2, 0.1, 1.0],
-	uv:make_tc(2,1),
-	uvR:make_tc(1,1),
+	uv:make_tc(2,2),
+	uvR:make_tc(1,2),
 };
 TILES.solid = {
 	color:[0.7, 0.7, 0.7, 1.0]
@@ -124,7 +124,9 @@ function makeCornerTileset(row,col) {
 
 const CORNER_TILESETS = {};
 CORNER_TILESETS.remembered = makeCornerTileset(11,1);
-CORNER_TILESETS.future = makeCornerTileset(11,6);
+CORNER_TILESETS.futureCenter = makeCornerTileset(11,6);
+CORNER_TILESETS.futureEdge = makeCornerTileset(11,11);
+CORNER_TILESETS.futureMode = makeCornerTileset(6,11);
 
 const ANIMATIONS = {};
 ANIMATIONS.playerStand = [
