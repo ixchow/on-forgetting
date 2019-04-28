@@ -29,13 +29,25 @@ const GAME = {
 };
 
 GAME.setLevel = function GAME_setLevel(LEVEL) {
-	const map = LEVEL.map;
+	const map = LEVEL.map.slice();
+	//pad map on all sides:
+	map.unshift("");
+	map.unshift("");
+	map.unshift("");
+	map.push("");
+	map.push("");
+	map.push("");
+	for (let i = 0; i < map.length; ++i) {
+		map[i] = '.....' + map[i] + '.....';
+	}
+
 	this.width = 0;
 	this.height = map.length;
 	map.forEach(function(row){
 		this.width = Math.max(this.width, row.length);
 	}, this);
 	this.tiles = new Array(this.width * this.height);
+
 
 	let start = {x:0, y:0};
 
@@ -512,6 +524,20 @@ GAME.finishFuture = function GAME_finishFuture(ofs) {
 	this.futureMode = false;
 }
 
+GAME.isAtExit = function GAME_isAtExit() {
+	if (!this.futureMode) {
+		let ix = Math.floor(this.player.x);
+		let iy = Math.floor(this.player.y + 0.5 * PLAYER_HEIGHT);
+		if (ix >= 0 && ix < this.width && iy >= 0 && iy < this.height) {
+			let t = this.tiles[iy*this.width+ix];
+			if (t.bg === TILES.exit) {
+				return {x:ix, y:iy};
+			}
+		}
+	}
+	return false;
+};
+
 GAME.tick = function GAME_tick(controls) {
 	if (controls.reset.downs) {
 		this.setLevel(LEVELS[LEVEL_INDEX]);
@@ -636,13 +662,18 @@ GAME.tick = function GAME_tick(controls) {
 		}
 	}
 
+	//resolve wins based on exit tile:
+	if (this.isAtExit() && controls.up.downs) {
+		nextLevel();
+		return;
+	}
 
 	//resolve camera:
 	this.camera.x = Math.max(this.camera.x, this.player.x - 2.0);
 	this.camera.x = Math.min(this.camera.x, this.player.x + 2.0);
 	this.camera.y = Math.max(this.camera.y, this.player.y - 2.0);
 	this.camera.y = Math.min(this.camera.y, this.player.y + 2.0);
-	this.camera.y = Math.max(this.camera.y, -1.0 + this.camera.radius);
+	this.camera.y = Math.max(this.camera.y, 1.5 + this.camera.radius);
 };
 
 GAME.draw = function GAME_draw() {
@@ -689,6 +720,21 @@ GAME.draw = function GAME_draw() {
 		);
 	}
 
+	function push_message(x,y,m) {
+		const c = [1,1,1,1];
+		const uv = m.uv;
+		const w = Math.abs((uv[2]-uv[0])/(uv[3]-uv[1]));
+
+		attribs.push(
+			x+0,y+0, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			x+w,y+0, uv[2],uv[1], c[0],c[1],c[2],c[3],
+			x+w,y+1, uv[2],uv[3], c[0],c[1],c[2],c[3],
+			x+0,y+0, uv[0],uv[1], c[0],c[1],c[2],c[3],
+			x+w,y+1, uv[2],uv[3], c[0],c[1],c[2],c[3],
+			x+0,y+1, uv[0],uv[3], c[0],c[1],c[2],c[3]
+		);
+	}
+
 	function push_line(ax,ay,bx,by,c) {
 		if (ax === bx && ay === by) return;
 		let r = 0.05;
@@ -730,7 +776,7 @@ GAME.draw = function GAME_draw() {
 	//player:
 	push_tile(this.player.x - 0.5, this.player.y, this.player.anim[this.player.animFrame]);
 	//DEBUG:
-	push_rect(this.player.x-0.5*PLAYER_WIDTH, this.player.y, PLAYER_WIDTH, PLAYER_HEIGHT, [0.0, (this.player.grounded ? 1.0 : 0.0), 1.0, 0.1]);
+	//push_rect(this.player.x-0.5*PLAYER_WIDTH, this.player.y, PLAYER_WIDTH, PLAYER_HEIGHT, [0.0, (this.player.grounded ? 1.0 : 0.0), 1.0, 0.1]);
 
 	if (!this.futureMode) { //memory layer:
 		let remembered = new Array((this.width+2)*(this.height+2));
@@ -835,6 +881,21 @@ GAME.draw = function GAME_draw() {
 		*/
 	}
 
+	//help text:
+	{
+		const x = this.camera.x;
+		const y = this.camera.y;
+		const aspect = CANVAS.width / CANVAS.height;
+		const scale = Math.min(aspect,1.0) / this.camera.radius;
+		push_message(x-aspect * 1.0 / scale, y-1.0 / scale, MESSAGES.move);
+		push_message(x+aspect * 1.0 / scale - 3.0, y-1.0 / scale, MESSAGES.reset);
+
+		const at = this.isAtExit();
+		if (at) {
+			push_message(at.x - 0.75, at.y + 0.9, MESSAGES.enter);
+		}
+	}
+
 	/*//MORE DEBUG:
 	{
 		let cvxs = this.buildCollision(0,0,1.0);
@@ -934,6 +995,12 @@ if (document.location.search != "") {
 	LEVEL_INDEX = parseInt(document.location.search.substr(1));
 }
 GAME.setLevel(LEVELS[LEVEL_INDEX]);
+
+function nextLevel() {
+	LEVEL_INDEX += 1;
+	GAME.setLevel(LEVELS[LEVEL_INDEX]);
+	if (history && history.replaceState) history.replaceState({},"","?" + LEVEL_INDEX);
+}
 
 //--------------------------------
 //Actually drive the game:

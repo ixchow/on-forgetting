@@ -82,6 +82,32 @@ TILES.cloud = {
 	color:[1.0, 1.0, 1.0, 0.7]
 };
 
+
+const MESSAGES = {};
+
+function make_mtc(row, col, width) {
+	//512x512 image with 32x32 tiles, numbered from the upper left
+	//[note, upper left == image origin; webgl loads it at (0,0) ]
+	return [
+		0.0 + (32 * (col+0)) / 512.0,
+		0.0 + (32 * (row+1)) / 512.0,
+		0.0 + (32 * (col+width)) / 512.0,
+		0.0 + (32 * (row+0)) / 512.0,
+	];
+}
+
+MESSAGES.move = {
+	uv:make_mtc(6,0, 4.0),
+};
+
+MESSAGES.enter = {
+	uv:make_mtc(5,0, 2.5),
+};
+
+MESSAGES.reset = {
+	uv:make_mtc(7,0, 3.0),
+};
+
 function makeCornerTileset(row,col) {
 	//Bits:
 	// 4 -- 8
