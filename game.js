@@ -403,7 +403,7 @@ GAME.startFuture = function GAME_startFuture(x,y) {
 		});
 		const inFuture = new Array((maxX+1-minX+2)*(maxY+1-minY+2));
 		future.forEach(function(at){
-			inFuture[at.y*(maxX+1-minX+2)+at.x] = true;
+			inFuture[(at.y-minY+1)*(maxX+1-minX+2)+(at.x-minX+1)] = true;
 		});
 
 		outline.x = minX - 0.5;
@@ -411,8 +411,8 @@ GAME.startFuture = function GAME_startFuture(x,y) {
 		outline.width = maxX+1-minX+1;
 		outline.height = maxY+1-minY+1;
 		outline.inds = new Array((maxX+1-minX+1)*(maxY+1-minY+1));
-		for (let y = 0; y <= maxY+1-minY; ++y) {
-			for (let x = 0; x <= maxX+1-minX; ++x) {
+		for (let y = 0; y < maxY+1-minY+1; ++y) {
+			for (let x = 0; x < maxX+1-minX+1; ++x) {
 				outline.inds[y*(maxX+1-minX+1)+x] =
 					  (inFuture[(y+0)*(maxX+1-minX+2)+(x+0)] ? 1 : 0)
 					+ (inFuture[(y+0)*(maxX+1-minX+2)+(x+1)] ? 2 : 0)
@@ -432,42 +432,6 @@ GAME.startFuture = function GAME_startFuture(x,y) {
 	}, this);
 	console.log("Future has " + future.length + " tiles, and " + required.length + " requirements.");
 	console.assert(required.length > 0, "must have something required");
-
-/*
-	//look for requirements:
-	this.tiles.forEach(function(tile, tileIndex){
-		if (tile.bg !== required[0].requires) return;
-		if (!tile.isRemembered) return;
-
-		let at = {
-			x:(tileIndex % this.width),
-			y:Math.floor(tileIndex / this.width)
-		};
-		for (let i = 1; i < required.length; ++i) {
-			let n = {
-				x: at.x + required[i].x - required[0].x,
-				y: at.y + required[i].y - required[0].y
-			};
-			if (n.x < 0 || n.x >= this.width || n.y < 0 || n.y >= this.height) {
-				return; //bail out -- nothing here to match
-			}
-			let ntile = this.tiles[n.y * this.width + n.x];
-			if (!ntile.isRemembered) {
-				return; //bail out -- nothing remembered here to match
-			}
-			if (ntile.bg !== required[i].requires) {
-				return; //bail out -- tile doesn't match
-			}
-		}
-		//Hmm, looks like a real match!
-		let ofs = {
-			x:at.x - required[0].x,
-			y:at.y - required[0].y
-		};
-		console.log("Match at " + at.x + ", " + at.y + " with offset " + ofs.x + " " + ofs.y + ".");
-		tile.matchOffset = ofs;
-	}, this);
-	*/
 
 	this.futureMode = {
 		outline:outline,
@@ -493,7 +457,7 @@ GAME.finishFuture = function GAME_finishFuture(ofs) {
 				bg = stile.bg;
 			}
 		}
-		if (bg !== r.required) {
+		if (bg !== r.requires) {
 			matched = false;
 		}
 	}, this);
@@ -531,8 +495,6 @@ GAME.finishFuture = function GAME_finishFuture(ofs) {
 		tile.fg = tile.from.fg;
 		tile.bg = tile.from.bg;
 		tile.isRemembered = true;
-
-		console.log(tile);
 	}, this);
 
 	//teleport player:
@@ -600,7 +562,7 @@ GAME.tick = function GAME_tick(controls) {
 							bg = stile.bg;
 						}
 					}
-					if (bg !== r.required) {
+					if (bg !== r.requires) {
 						matched = false;
 					}
 				}, this);
@@ -813,14 +775,22 @@ GAME.draw = function GAME_draw() {
 				push_tile(x-0.5,y-0.5,CORNER_TILESETS.futureMode[idx]);
 			}
 		}
-		for (let y = 0; y < this.futureMode.outline.width; ++y) {
-			for (let x = 0; x < this.futureMode.outline.height; ++x) {
+		//outline of goal:
+		let ofs = {
+			x:this.player.x - this.futureMode.relative.x,
+			y:this.player.y - this.futureMode.relative.y,
+		};
+		for (let y = 0; y < this.futureMode.outline.height; ++y) {
+			for (let x = 0; x < this.futureMode.outline.width; ++x) {
 				push_tile(
-					this.futureMode.outline.x+x+this.futureMode.offset.x,
-					this.futureMOde.outline.y+y+this.futureMode.offset.y,
-					CORNER_TILESETS.futureEdge[this.futureMode.outline.indices[y*this.futureMode.outline.width+x]]);
+					this.futureMode.outline.x+x+ofs.x,
+					this.futureMode.outline.y+y+ofs.y,
+					CORNER_TILESETS.futureEdge[this.futureMode.outline.inds[y*this.futureMode.outline.width+x]]);
 			}
 		}
+		this.futureMode.required.forEach(function(r){
+			push_tile_uv_c(r.x + ofs.x, r.y + ofs.y, r.requires.uvR, [1.0, 1.0, 1.0, 1.0]);
+		}, this);
 		/*
 		//future requirements:
 		this.tiles.forEach(function(tile, tileIndex){
