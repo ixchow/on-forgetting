@@ -370,7 +370,6 @@ GAME.movePlayer = function GAME_movePlayer(controls) {
 GAME.startFuture = function GAME_startFuture(x,y) {
 	this.tiles.forEach(function(tile){
 		delete tile.marked;
-		delete tile.matchOffset;
 	});
 
 	//flood-fill the future & mark:
@@ -389,6 +388,41 @@ GAME.startFuture = function GAME_startFuture(x,y) {
 		}, this);
 	}
 
+	//build outline tile indices:
+	let outline = {};
+	{
+		let minX = Infinity;
+		let maxX = -Infinity;
+		let minY = Infinity;
+		let maxY = -Infinity;
+		future.forEach(function(at){
+			minX = Math.min(minX, at.x);
+			minY = Math.min(minY, at.y);
+			maxX = Math.max(maxX, at.x);
+			maxY = Math.max(maxY, at.y);
+		});
+		const inFuture = new Array((maxX+1-minX+2)*(maxY+1-minY+2));
+		future.forEach(function(at){
+			inFuture[at.y*(maxX+1-minX+2)+at.x] = true;
+		});
+
+		outline.x = minX - 0.5;
+		outline.y = minY - 0.5;
+		outline.width = maxX+1-minX+1;
+		outline.height = maxY+1-minY+1;
+		outline.inds = new Array((maxX+1-minX+1)*(maxY+1-minY+1));
+		for (let y = 0; y <= maxY+1-minY; ++y) {
+			for (let x = 0; x <= maxX+1-minX; ++x) {
+				outline.inds[y*(maxX+1-minX+1)+x] =
+					  (inFuture[(y+0)*(maxX+1-minX+2)+(x+0)] ? 1 : 0)
+					+ (inFuture[(y+0)*(maxX+1-minX+2)+(x+1)] ? 2 : 0)
+					+ (inFuture[(y+1)*(maxX+1-minX+2)+(x+0)] ? 4 : 0)
+					+ (inFuture[(y+1)*(maxX+1-minX+2)+(x+1)] ? 8 : 0)
+				;
+			}
+		}
+	}
+
 	let required = [];
 	future.forEach(function(at){
 		let tile = this.tiles[at.y*this.width+at.x];
@@ -399,6 +433,7 @@ GAME.startFuture = function GAME_startFuture(x,y) {
 	console.log("Future has " + future.length + " tiles, and " + required.length + " requirements.");
 	console.assert(required.length > 0, "must have something required");
 
+/*
 	//look for requirements:
 	this.tiles.forEach(function(tile, tileIndex){
 		if (tile.bg !== required[0].requires) return;
@@ -432,14 +467,37 @@ GAME.startFuture = function GAME_startFuture(x,y) {
 		console.log("Match at " + at.x + ", " + at.y + " with offset " + ofs.x + " " + ofs.y + ".");
 		tile.matchOffset = ofs;
 	}, this);
+	*/
 
-
-	this.futureMode = true;
+	this.futureMode = {
+		outline:outline,
+		required:required,
+		relative:{x:this.player.x, y:this.player.y},
+		offset:{x:0, y:0}
+	};
 };
 
-GAME.finishFuture = function GAME_finishFuture(x,y) {
-	let ofs = this.tiles[y*this.width+x].matchOffset;
+//ofs is (match - future)
+GAME.finishFuture = function GAME_finishFuture(ofs) {
 	console.log("Match with offset " + ofs.x + " " + ofs.y);
+	//check match:
+	let matched = true;
+	this.futureMode.required.forEach(function(r){
+		let src = { x:r.x+ofs.x, y:r.y+ofs.y };
+		let fg = null;
+		let bg = null;
+		if (src.x >= 0 && src.x < this.width && src.y >= 0 && src.y < this.height) {
+			let stile = this.tiles[src.y*this.width+src.x];
+			if (stile.isRemembered) {
+				fg = stile.fg;
+				bg = stile.bg;
+			}
+		}
+		if (bg !== r.required) {
+			matched = false;
+		}
+	}, this);
+	console.assert(matched, "can't finishFuture without matching offset");
 
 	//all marked tiles copy from the proper offset and mark isForgotten:
 	this.tiles.forEach(function(tile, tileIndex){
@@ -484,7 +542,6 @@ GAME.finishFuture = function GAME_finishFuture(x,y) {
 	//clean up:
 	this.tiles.forEach(function(tile){
 		delete tile.marked;
-		delete tile.matchOffset;
 	});
 
 	this.futureMode = false;
@@ -519,15 +576,37 @@ GAME.tick = function GAME_tick(controls) {
 
 		if (this.futureMode) {
 			//Future mode:
-			//Touch a match => present mode (and re-arrange map?)
-			for (let y = minY; y <= maxY; ++y) {
-				for (let x = minX; x <= maxX; ++x) {
-					if (this.tiles[y*this.width+x].matchOffset) {
-						this.finishFuture(x,y);
-						break;
+			//compute some sort of offset:
+			let ofs = {
+				x:this.player.x - this.futureMode.relative.x,
+				y:this.player.y - this.futureMode.relative.y,
+			};
+			if (Math.abs(ofs.x - Math.round(ofs.x)) < 0.1) ofs.x = Math.round(ofs.x);
+			if (Math.abs(ofs.y - Math.round(ofs.y)) < 0.1) ofs.y = Math.round(ofs.y);
+
+			this.futureMode.offset = ofs;
+
+			if (ofs.x === Math.round(ofs.x) && ofs.y === Math.round(ofs.y)) {
+				//ofs is close enough to grid to check, so do that:
+				let matched = true;
+				this.futureMode.required.forEach(function(r){
+					let src = { x:r.x+ofs.x, y:r.y+ofs.y };
+					let fg = null;
+					let bg = null;
+					if (src.x >= 0 && src.x < this.width && src.y >= 0 && src.y < this.height) {
+						let stile = this.tiles[src.y*this.width+src.x];
+						if (stile.isRemembered) {
+							fg = stile.fg;
+							bg = stile.bg;
+						}
 					}
+					if (bg !== r.required) {
+						matched = false;
+					}
+				}, this);
+				if (matched) {
+					this.finishFuture(ofs);
 				}
-				if (!this.futureMode) break;
 			}
 		} else {
 			//Present mode:
@@ -734,6 +813,15 @@ GAME.draw = function GAME_draw() {
 				push_tile(x-0.5,y-0.5,CORNER_TILESETS.futureMode[idx]);
 			}
 		}
+		for (let y = 0; y < this.futureMode.outline.width; ++y) {
+			for (let x = 0; x < this.futureMode.outline.height; ++x) {
+				push_tile(
+					this.futureMode.outline.x+x+this.futureMode.offset.x,
+					this.futureMOde.outline.y+y+this.futureMode.offset.y,
+					CORNER_TILESETS.futureEdge[this.futureMode.outline.indices[y*this.futureMode.outline.width+x]]);
+			}
+		}
+		/*
 		//future requirements:
 		this.tiles.forEach(function(tile, tileIndex){
 			if (tile.isFuture && tile.requires) {
@@ -742,6 +830,7 @@ GAME.draw = function GAME_draw() {
 				push_tile_uv_c(x,y, tile.requires.uvR, [1.0, 1.0, 1.0, 1.0]);
 			}
 		}, this);
+		*/
 	}
 
 	/*//MORE DEBUG:
