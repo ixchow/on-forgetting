@@ -82,7 +82,10 @@ GAME.setLevel = function GAME_setLevel(LEVEL) {
 		y:start.y + 1e-3,
 		vx:0.0,
 		vy:0.0,
-		jumps:0
+		jumps:0,
+		anim:ANIMATIONS.playerStand,
+		animFrame:0,
+		animAcc:0.0
 	};
 
 	this.camera = {
@@ -515,6 +518,35 @@ GAME.tick = function GAME_tick(controls) {
 	}
 	this.movePlayer(controls);
 
+	{ //animation update:
+		const p = this.player;
+		function set(anim) {
+			if (p.anim !== anim) {
+				p.anim = anim;
+				p.animFrame = p.animFrame % anim.length;
+			}
+		}
+		if (Math.abs(this.player.vy) > 0.1) {
+			//set(ANIMATIONS.playerFall);
+			//p.animAcc += 0.33 * TICK;
+		} else {
+			if (this.player.vx < -0.5) {
+				set(ANIMATIONS.playerWalkLeft);
+				p.animAcc += Math.abs(this.player.vx * TICK / 0.5);
+			} else if (this.player.vx > 0.5) {
+				set(ANIMATIONS.playerWalkRight);
+				p.animAcc += Math.abs(this.player.vx * TICK / 0.5);
+			} else {
+				set(ANIMATIONS.playerStand);
+				p.animAcc += 0.66 * TICK;
+			}
+		}
+		if (p.animAcc > 1.0) {
+			p.animAcc = 0.0;
+			p.animFrame = (p.animFrame + 1) % p.anim.length;
+		}
+	}
+
 	//in present mode, forget as needed:
 	if (!this.futureMode) {
 		this.tiles.forEach(function(tile){
@@ -696,9 +728,9 @@ GAME.draw = function GAME_draw() {
 		}
 	}
 	//player:
-	//push_tile(this.player.x - 0.5, this.player.y, ANIMATIONS.playerStand[0]);
+	push_tile(this.player.x - 0.5, this.player.y, this.player.anim[this.player.animFrame]);
 	//DEBUG:
-	push_rect(this.player.x-0.5*PLAYER_WIDTH, this.player.y, PLAYER_WIDTH, PLAYER_HEIGHT, [0.0, (this.player.grounded ? 1.0 : 0.0), 1.0, 1.0]);
+	push_rect(this.player.x-0.5*PLAYER_WIDTH, this.player.y, PLAYER_WIDTH, PLAYER_HEIGHT, [0.0, (this.player.grounded ? 1.0 : 0.0), 1.0, 0.1]);
 
 	if (!this.futureMode) { //memory layer:
 		let remembered = new Array((this.width+2)*(this.height+2));

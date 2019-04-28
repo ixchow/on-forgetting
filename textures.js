@@ -130,11 +130,22 @@ CORNER_TILESETS.futureMode = makeCornerTileset(6,11);
 
 const ANIMATIONS = {};
 ANIMATIONS.playerStand = [
-	{color:[0.8, 0.2, 0.2, 1.0], uv:make_tc(4,0)},
-	{color:[0.7, 0.2, 0.2, 1.0], uv:make_tc(4,0)},
+	{color:[1.0, 1.0, 1.0, 1.0], uv:make_tc(4,0)},
+	{color:[1.0, 1.0, 1.0, 1.0], uv:make_tc(4,1)},
+];
+
+ANIMATIONS.playerFall = [
+	{color:[1.0, 1.0, 1.0, 1.0], uv:make_tc(4,0)},
+	{color:[1.0, 1.0, 1.0, 1.0], uv:make_tc(4,1)},
 ];
 
 ANIMATIONS.playerWalkRight = [
-	{color:[0.8, 0.2, 0.2, 1.0], uv:make_tc(4,1)},
-	{color:[0.7, 0.2, 0.2, 1.0], uv:make_tc(4,2)},
+	{color:[1.0, 1.0, 1.0, 1.0], uv:make_tc(4,2)},
+	{color:[1.0, 1.0, 1.0, 1.0], uv:make_tc(4,3)},
 ];
+
+ANIMATIONS.playerWalkLeft = [
+	{color:[1.0, 1.0, 1.0, 1.0], uv:make_tc(4,4)},
+	{color:[1.0, 1.0, 1.0, 1.0], uv:make_tc(4,5)},
+];
+
