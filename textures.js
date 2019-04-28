@@ -123,8 +123,8 @@ function makeCornerTileset(row,col) {
 };
 
 const CORNER_TILESETS = {};
-CORNER_TILESETS.remembered = makeCornerTileset(12,0);
-CORNER_TILESETS.future = makeCornerTileset(12,5);
+CORNER_TILESETS.remembered = makeCornerTileset(11,1);
+CORNER_TILESETS.future = makeCornerTileset(11,6);
 
 const ANIMATIONS = {};
 ANIMATIONS.playerStand = [
